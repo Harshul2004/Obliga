@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Obligation Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        excel: {
+                            DEFAULT: '#107c41',
+                            dark: '#0b5c2f',
+                            light: '#18a855'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Hide scrollbar for clean inputs */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200">
+
+    <div id="app-root" class="flex-1 w-full flex flex-col"></div>
+    <div id="modal-root"></div>
+
+    <script>
+        const Icons = {
+            Table: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-white"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>`,
+            Search: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/></svg>`,
+            Plus: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>`,
+            History: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>`,
+            Copy: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`,
+            Upload: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>`,
+            Download: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`,
+            Moon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`,
+            Sun: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
+            AlertCircle: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>`,
+            CheckCircle: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>`,
+            Filter: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>`,
+            Zap: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
+            ArrowLeft: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><line x1="19" x2="5" y1="12" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`,
+            Mail: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`,
+            CheckSquare: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+            Trash: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>`,
+            Clock: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+            Activity: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`
+        };
+
+        const State = {
+            requests: JSON.parse(localStorage.getItem('eo_requests')) || [],
+            templates: JSON.parse(localStorage.getItem('eo_templates')) || [],
+            activeView: 'dashboard', // dashboard, create, request, history, search, endOfShift
+            selectedRequestId: null,
+            searchQuery: '',
+            sortOption: 'oldest',
+            isDarkMode: localStorage.getItem('eo_dark') === 'true',
+            alertMsg: null,
+            importProgress: null,
+            wipeProgress: null,
+            
+            // Temporary state for the Create View so we don't lose focus
+            createDraft: {
+                templateId: '', empName: '', concernedEmail: '', topic: '', subject: '', notes: '', actions: ['']
+            }
+        };
+
+        function saveState() {
+            localStorage.setItem('eo_requests', JSON.stringify(State.requests));
+            localStorage.setItem('eo_templates', JSON.stringify(State.templates));
+            localStorage.setItem('eo_dark', State.isDarkMode);
+            applyTheme();
+        }
+
+        function applyTheme() {
+            if (State.isDarkMode) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+        applyTheme();
+
+        // Utilities
+        const escapeHTML = (str) => {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag])
+            );
+        };
+
+        const getStatusBadge = (status) => {
+            const colors = {
+                'ACTIVE': 'bg-excel/10 text-excel-dark border border-excel/20 dark:bg-excel-dark/30 dark:text-excel-light dark:border-excel-dark',
+                'WAITING': 'bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50',
+                'COMPLETE': 'bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700',
+            };
+            return `<span class="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${colors[status] || colors['ACTIVE']}">${status}</span>`;
+        };
+
+        const getSLA = (req) => {
+            if (req.status === 'COMPLETE') return null;
+            const lastEvent = req.timeline && req.timeline.length > 0 ? req.timeline[req.timeline.length - 1].timestamp : req.createdAt;
+            const lastTime = new Date(lastEvent).getTime();
+            const now = Date.now();
+            const hoursDiff = (now - lastTime) / (1000 * 60 * 60);
+
+            if (req.status === 'WAITING') {
+                if (hoursDiff >= 48) return { label: '> 48h Stale (Follow-up!)', color: 'bg-red-50 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-900 animate-pulse', dot: 'bg-red-600 dark:bg-red-500' };
+                return { label: 'Waiting safely', color: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700', dot: 'bg-slate-400 dark:bg-slate-500' };
+            }
+            if (hoursDiff >= 4) return { label: '> 4h Inactive', color: 'bg-red-50 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-900', dot: 'bg-red-600 dark:bg-red-500' };
+            if (hoursDiff >= 2) return { label: '> 2h Inactive', color: 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-900', dot: 'bg-amber-500 dark:bg-amber-400' };
+            return { label: 'On Track', color: 'bg-excel/10 text-excel-dark border-excel/30 dark:bg-excel-dark/30 dark:text-excel-light dark:border-excel-dark', dot: 'bg-excel dark:bg-excel-light' };
+        };
+
+        window.setView = (view, reqId = null) => {
+            State.activeView = view;
+            if (reqId) State.selectedRequestId = reqId;
+            if (view !== 'create') {
+                // Reset draft
+                State.createDraft = { templateId: '', empName: '', concernedEmail: '', topic: '', subject: '', notes: '', actions: [''] };
+            }
+            renderApp();
+        };
+
+        window.toggleTheme = () => {
+            State.isDarkMode = !State.isDarkMode;
+            saveState();
+            renderApp();
+        };
+
+        window.handleSearchInput = (e) => {
+            State.searchQuery = e.target.value;
+            if (State.searchQuery.trim() !== '') {
+                State.activeView = 'search';
+            } else if (State.activeView === 'search') {
+                State.activeView = 'dashboard';
+            }
+            renderApp(); // Search is fast enough for full re-render on keystroke
+        };
+
+        window.showAlert = (msg) => {
+            State.alertMsg = msg;
+            renderModals();
+        };
+
+        window.closeAlert = () => {
+            State.alertMsg = null;
+            renderModals();
+        };
+
+        // Real-world robust copy feature utilizing execCommand to bypass iFrame/browser strict clipboard restrictions
+        window.copyToClipboard = (text) => {
+            if (!text) return;
+            const el = document.createElement('textarea');
+            el.value = text;
+            el.setAttribute('readonly', '');
+            el.style.position = 'absolute';
+            el.style.left = '-9999px';
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            window.showAlert(`Copied to clipboard:\n\n${text}`);
+        };
+
+        // Create Workload Logic
+        window.updateDraft = (field, value, index = null) => {
+            if (index !== null) {
+                State.createDraft.actions[index] = value;
+            } else {
+                State.createDraft[field] = value;
+            }
+        };
+
+        window.addDraftAction = () => {
+            State.createDraft.actions.push('');
+            renderApp();
+        };
+
+        window.removeDraftAction = (index) => {
+            State.createDraft.actions.splice(index, 1);
+            renderApp();
+        };
+
+        window.handleTemplateChange = (e) => {
+            const tId = e.target.value;
+            State.createDraft.templateId = tId;
+            if (tId) {
+                const t = State.templates.find(temp => temp.id === tId);
+                if (t) {
+                    State.createDraft.topic = t.topic;
+                    State.createDraft.subject = '';
+                    State.createDraft.actions = t.defaultActions.length > 0 ? [...t.defaultActions] : [''];
+                }
+            } else {
+                State.createDraft.topic = '';
+                State.createDraft.subject = '';
+                State.createDraft.actions = [''];
+            }
+            renderApp();
+        };
+
+        window.deleteTemplate = () => {
+            if (!State.createDraft.templateId) return;
+            State.templates = State.templates.filter(t => t.id !== State.createDraft.templateId);
+            saveState();
+            State.createDraft.templateId = '';
+            State.createDraft.topic = '';
+            State.createDraft.subject = '';
+            State.createDraft.notes = '';
+            State.createDraft.actions = [''];
+            window.showAlert("Template deleted successfully.");
+            renderApp();
+        };
+
+        window.saveAsTemplate = () => {
+            if (!State.createDraft.topic.trim()) {
+                window.showAlert("Topic is required to save as a template.");
+                return;
+            }
+            const newTemplate = {
+                id: `t_${Date.now()}`,
+                topic: State.createDraft.topic,
+                defaultActions: State.createDraft.actions.filter(a => a.trim() !== '')
+            };
+            State.templates.push(newTemplate);
+            saveState();
+            State.createDraft.templateId = newTemplate.id;
+            window.showAlert("Layout saved as a new template!");
+            renderApp();
+        };
+
+        window.createWorkload = () => {
+            if (!State.createDraft.empName.trim() || !State.createDraft.topic.trim()) {
+                window.showAlert("Employee Name and Topic are required to create a workload.");
+                return;
+            }
+
+            const isDuplicate = State.requests.some(r => 
+                r.topic.toLowerCase() === State.createDraft.topic.trim().toLowerCase() && 
+                r.employee.toLowerCase() === State.createDraft.empName.trim().toLowerCase() &&
+                r.status !== 'COMPLETE'
+            );
+
+            if (isDuplicate) {
+                window.showAlert("An active workload for this Employee and Topic already exists on your board.");
+                return;
+            }
+
+            const initialEmails = State.createDraft.subject.trim() ? [{ id: `e_${Date.now()}`, text: State.createDraft.subject, receivedAt: new Date().toISOString(), done: false }] : [];
+            const newReq = {
+                id: `req_${Date.now()}`,
+                topic: State.createDraft.topic,
+                employee: State.createDraft.empName,
+                concernedEmail: State.createDraft.concernedEmail,
+                status: 'ACTIVE',
+                createdAt: new Date().toISOString(),
+                notes: State.createDraft.notes || '',
+                emails: initialEmails,
+                actions: State.createDraft.actions.filter(a => a.trim() !== '').map((text, i) => ({ id: `a_${Date.now()}_${i}`, text, done: false })),
+                timeline: [{ id: `t_${Date.now()}`, type: 'STATUS', text: `Workload created for ${State.createDraft.empName}`, timestamp: new Date().toISOString() }]
+            };
+            
+            State.requests.push(newReq);
+            saveState();
+            window.setView('request', newReq.id);
+        };
+
+        const getRequest = () => State.requests.find(r => r.id === State.selectedRequestId);
+
+        window.toggleEmailDone = (emailId) => {
+            const req = getRequest();
+            if (!req) return;
+            const email = req.emails.find(e => e.id === emailId);
+            
+            // STRICT RULE: Cannot mark email done if actions are pending
+            if (!email.done) {
+                const hasIncompleteActions = req.actions.some(a => !a.done);
+                if (hasIncompleteActions) {
+                    window.showAlert("COMPLETION BLOCKED:\nYou must complete all Required Actions in Section 2 before marking this email as Done.");
+                    return;
+                }
+            }
+
+            email.done = !email.done;
+            req.timeline.push({ id: `t_${Date.now()}`, type: email.done ? 'ACK' : 'UNACK', text: `${email.done ? 'Marked Done' : 'Unmarked Done'}: ${email.text}`, timestamp: new Date().toISOString() });
+            saveState();
+            renderApp();
+        };
+
+        window.deleteEmail = (emailId) => {
+            const req = getRequest();
+            req.emails = req.emails.filter(e => e.id !== emailId);
+            req.timeline.push({ id: `t_${Date.now()}`, type: 'EMAIL', text: `Deleted an email from log`, timestamp: new Date().toISOString() });
+            saveState();
+            renderApp();
+        };
+
+        window.toggleActionDone = (actionId) => {
+            const req = getRequest();
+            const action = req.actions.find(a => a.id === actionId);
+            action.done = !action.done;
+            req.timeline.push({ id: `t_${Date.now()}`, type: 'ACTION', text: `${action.done ? 'Completed' : 'Reopened'} action: ${action.text}`, timestamp: new Date().toISOString() });
+            saveState();
+            renderApp();
+        };
+
+        window.updateNotes = (e) => {
+            const req = getRequest();
+            if (!req) return;
+            req.notes = e.target.value;
+            saveState();
+        };
+
+        window.updateWorkloadField = (field, value) => {
+            const req = getRequest();
+            if (!req) return;
+            req[field] = value;
+            saveState();
+        };
+
+        window.updateItemText = (type, id, value) => {
+            const req = getRequest();
+            if (!req) return;
+            if (type === 'email') {
+                const item = req.emails.find(e => e.id === id);
+                if (item) item.text = value;
+            } else if (type === 'action') {
+                const item = req.actions.find(a => a.id === id);
+                if (item) item.text = value;
+            }
+            saveState();
+        };
+
+        window.deleteSpecificWorkload = (btn, reqId) => {
+            if (btn.dataset.confirm === 'true') {
+                State.requests = State.requests.filter(r => r.id !== reqId);
+                saveState();
+                window.setView('dashboard');
+                window.showAlert("Workload permanently deleted.");
+            } else {
+                btn.dataset.confirm = 'true';
+                btn.innerHTML = `${Icons.Trash} <span class="ml-2">Confirm Delete?</span>`;
+                btn.classList.add('bg-red-700', 'text-white');
+                btn.classList.remove('bg-red-50', 'text-red-600', 'dark:bg-red-900/30', 'dark:text-red-400');
+                
+                setTimeout(() => {
+                    if (btn && document.body.contains(btn)) {
+                        btn.dataset.confirm = 'false';
+                        btn.innerHTML = `${Icons.Trash} <span class="ml-2">Delete Workload</span>`;
+                        btn.classList.remove('bg-red-700', 'text-white');
+                        btn.classList.add('bg-red-50', 'text-red-600', 'dark:bg-red-900/30', 'dark:text-red-400');
+                    }
+                }, 3000);
+            }
+        };
+
+        window.changeStatus = (newStatus) => {
+            const req = getRequest();
+            req.status = newStatus;
+            req.timeline.push({ id: `t_${Date.now()}`, type: 'STATUS', text: `Status changed to ${newStatus}`, timestamp: new Date().toISOString() });
+            saveState();
+            renderApp();
+        };
+
+        window.attemptComplete = () => {
+            const req = getRequest();
+            const unacked = req.emails.filter(e => !e.done).length;
+            const undone = req.actions.filter(a => !a.done).length;
+
+            if (unacked > 0 || undone > 0) {
+                window.showAlert(`COMPLETION BLOCKED:\nYou still have ${undone} incomplete action(s) and ${unacked} emails not marked as done.`);
+                return;
+            }
+            
+            req.status = 'COMPLETE';
+            req.timeline.push({ id: `t_${Date.now()}`, type: 'STATUS', text: `Status changed to COMPLETE`, timestamp: new Date().toISOString() });
+            saveState();
+            window.setView('dashboard');
+        };
+
+        window.addExistingEmail = () => {
+            const input = document.getElementById('new-email-text');
+            const text = input.value;
+            if (!text.trim()) return;
+            const req = getRequest();
+            
+            if (req.emails.some(e => e.text.toLowerCase() === text.trim().toLowerCase())) {
+                window.showAlert("This email is already logged in this workload.");
+                return;
+            }
+
+            req.status = 'ACTIVE';
+            req.emails.push({ id: `e_${Date.now()}`, text, receivedAt: new Date().toISOString(), done: false });
+            req.timeline.push({ id: `t_${Date.now()}`, type: 'EMAIL', text: `Logged: ${text}`, timestamp: new Date().toISOString() });
+            saveState();
+            renderApp();
+        };
+
+        window.addExistingAction = () => {
+            const input = document.getElementById('new-action-text');
+            const text = input.value;
+            if (!text.trim()) return;
+            const req = getRequest();
+            
+            if (req.actions.some(a => a.text.toLowerCase() === text.trim().toLowerCase())) {
+                window.showAlert("This action is already added to this workload.");
+                return;
+            }
+
+            req.actions.push({ id: `a_${Date.now()}`, text, done: false });
+            req.timeline.push({ id: `t_${Date.now()}`, type: 'ACTION', text: `Action added: ${text}`, timestamp: new Date().toISOString() });
+            saveState();
+            renderApp();
+        };
+
+        window.handleExportCSV = () => {
+            const headers = ['Email Subject', 'Date', 'Remarks', 'Pending'];
+            const rows = State.requests.map(req => {
+                const latestEmailText = (req.emails && req.emails.length > 0) ? req.emails[req.emails.length - 1].text : req.topic;
+                const date = new Date(req.createdAt).toLocaleDateString();
+                const namePart = `'${req.employee}' <${req.concernedEmail || 'N/A'}>`;
+                const actionsPart = req.actions.map(a => `${a.text} - ${a.done ? 'DONE' : 'PENDING'}`).join(' | ');
+                const colC = actionsPart ? `${namePart} - ${actionsPart}` : namePart;
+                const isPending = req.status !== 'COMPLETE' ? 'Pending' : 'Done';
+                
+                const escapeCSV = (str) => `"${String(str).replace(/"/g, '""')}"`;
+                return [escapeCSV(latestEmailText), escapeCSV(date), escapeCSV(colC), escapeCSV(isPending)].join(',');
+            });
+
+            const csvContent = [headers.join(','), ...rows].join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `workloads_export_${new Date().toLocaleDateString().replace(/\//g,'-')}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        window.handleImportClick = () => {
+            document.getElementById('csv-file-input').click();
+        };
+
+        window.processImportCSV = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            State.importProgress = 0;
+            renderModals();
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const text = event.target.result;
+                    const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+                    const parsedReqs = [];
+                    
+                    for (let i = 1; i < lines.length; i++) {
+                        const rowText = lines[i];
+                        const row = [];
+                        let current = '';
+                        let inQuotes = false;
+                        for (let j = 0; j < rowText.length; j++) {
+                            let char = rowText[j];
+                            if (char === '"' && rowText[j+1] === '"') { current += '"'; j++; } 
+                            else if (char === '"') { inQuotes = !inQuotes; } 
+                            else if (char === ',' && !inQuotes) { row.push(current); current = ''; } 
+                            else { current += char; }
+                        }
+                        row.push(current);
+
+                        if (row.length < 4) continue;
+                        const [emailSubject, dateStr, remarks, pendingStatus] = row;
+                        
+                        let employeeName = 'Unknown User';
+                        let emailAddr = '';
+                        let actions = [];
+                        let topic = emailSubject !== 'N/A' ? emailSubject : remarks.substring(0, 30);
+
+                        const remarksMatch = remarks.match(/^'(.*)'\s*<([^>]+)>(?:\s*-\s*(.*))?$/);
+                        if (remarksMatch) {
+                            employeeName = remarksMatch[1] || 'Unknown User';
+                            emailAddr = remarksMatch[2] || '';
+                            const actionsStr = remarksMatch[3];
+                            if (actionsStr) {
+                                const actionParts = actionsStr.split(' | ');
+                                actions = actionParts.map((act, idx) => {
+                                    const isDone = act.endsWith(' - DONE');
+                                    const actText = act.replace(/ - (DONE|PENDING)$/, '');
+                                    return { id: `a_imp_${Date.now()}_${i}_${idx}`, text: actText, done: isDone };
+                                });
+                            }
+                        }
+
+                        const status = pendingStatus.trim().toUpperCase() === 'DONE' ? 'COMPLETE' : 'ACTIVE';
+                        const emails = emailSubject !== 'N/A' ? [{ id: `e_imp_${Date.now()}_${i}`, text: emailSubject, receivedAt: new Date().toISOString(), done: status === 'COMPLETE' }] : [];
+                        const pastDate = new Date(); pastDate.setHours(pastDate.getHours() - (i % 5)); 
+
+                        const isDuplicate = State.requests.some(r => 
+                            r.topic === topic && 
+                            r.employee === employeeName &&
+                            r.status === status
+                        );
+
+                        if (!isDuplicate) {
+                            parsedReqs.push({
+                                id: `req_imp_${Date.now()}_${i}`,
+                                topic: topic,
+                                employee: employeeName,
+                                concernedEmail: emailAddr,
+                                status: status,
+                                createdAt: pastDate.toISOString(),
+                                emails: emails,
+                                actions: actions,
+                                timeline: [{ id: `t_imp_${Date.now()}_${i}`, type: 'STATUS', text: `Imported locally`, timestamp: pastDate.toISOString() }]
+                            });
+                        }
+                    }
+                    
+                    if (parsedReqs.length === 0) {
+                        State.importProgress = null;
+                        window.showAlert("No new workloads found, or all items in the CSV were duplicates of existing data.");
+                        return;
+                    }
+
+                    // Simulated chunked saving for UI effect (LocalStorage is instant)
+                    let importedCount = 0;
+                    const total = parsedReqs.length;
+                    const chunkSize = 50;
+                    
+                    const processChunk = () => {
+                        const chunk = parsedReqs.slice(importedCount, importedCount + chunkSize);
+                        State.requests.push(...chunk);
+                        importedCount += chunk.length;
+                        State.importProgress = Math.round((importedCount / total) * 100);
+                        renderModals();
+                        
+                        if (importedCount < total) {
+                            setTimeout(processChunk, 10);
+                        } else {
+                            saveState();
+                            setTimeout(() => {
+                                State.importProgress = null;
+                                window.showAlert(`Successfully imported ${total} workloads!`);
+                                renderApp();
+                            }, 400);
+                        }
+                    };
+                    processChunk();
+
+                } catch (error) {
+                    console.error(error);
+                    State.importProgress = null;
+                    window.showAlert("An error occurred during import.");
+                }
+            };
+            reader.readAsText(file);
+            e.target.value = null; 
+        };
+
+        window.triggerWipe = (btn) => {
+            if (btn.dataset.confirm === 'true') {
+                // Execute Wipe
+                State.wipeProgress = 0;
+                renderModals();
+                
+                // Animate wipe
+                let p = 0;
+                const i = setInterval(() => {
+                    p += 15;
+                    if(p > 100) p = 100;
+                    State.wipeProgress = p;
+                    renderModals();
+                    if(p === 100) {
+                        clearInterval(i);
+                        State.requests = [];
+                        saveState();
+                        setTimeout(() => {
+                            State.wipeProgress = null;
+                            window.setView('dashboard');
+                            window.showAlert("Board wiped successfully. Ready for a new day!");
+                        }, 500);
+                    }
+                }, 50);
+
+            } else {
+                btn.dataset.confirm = 'true';
+                btn.innerHTML = `${Icons.Trash} <span class="ml-2">Click Again to Delete All</span>`;
+                btn.classList.add('bg-red-700', 'text-white');
+                btn.classList.remove('bg-red-100', 'text-red-800', 'dark:bg-red-900/30', 'dark:text-red-400');
+                
+                setTimeout(() => {
+                    if (btn && document.body.contains(btn)) {
+                        btn.dataset.confirm = 'false';
+                        btn.innerHTML = `${Icons.Trash} <span class="ml-2">Wipe Board Clean</span>`;
+                        btn.classList.remove('bg-red-700', 'text-white');
+                        btn.classList.add('bg-red-100', 'text-red-800', 'dark:bg-red-900/30', 'dark:text-red-400');
+                    }
+                }, 3000);
+            }
+        };
+
+        window.addEventListener('keydown', (e) => {
+            const activeTag = document.activeElement.tagName;
+            const isTyping = ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeTag);
+            
+            if (isTyping && e.key === 'Escape') {
+                document.activeElement.blur();
+                return;
+            }
+            if (e.altKey && e.key.toLowerCase() === 'n') {
+                e.preventDefault();
+                window.setView('create');
+            }
+            if (e.altKey && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                const searchBox = document.getElementById('univ-search');
+                if (searchBox) searchBox.focus();
+            }
+            if (!isTyping && e.key === 'Escape') {
+                State.searchQuery = '';
+                window.setView('dashboard');
+            }
+        });
+
+        
+        function getFilteredAndSortedRequests() {
+            let result = [...State.requests];
+            if (State.searchQuery.trim() !== '') {
+                const q = State.searchQuery.toLowerCase();
+                result = result.filter(req => 
+                    (req.topic && req.topic.toLowerCase().includes(q)) ||
+                    (req.employee && req.employee.toLowerCase().includes(q)) ||
+                    (req.concernedEmail && req.concernedEmail.toLowerCase().includes(q)) ||
+                    (req.emails && req.emails.some(e => e.text.toLowerCase().includes(q)))
+                );
+            }
+            result.sort((a, b) => {
+                if (State.sortOption === 'oldest') {
+                    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+                } else if (State.sortOption === 'newest') {
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                } else if (State.sortOption === 'most-actions') {
+                    const aPending = a.actions.filter(act => !act.done).length;
+                    const bPending = b.actions.filter(act => !act.done).length;
+                    return bPending - aPending; 
+                }
+                return 0;
+            });
+            return result;
+        }
+
+        function getStats() {
+            let incompleteActions = 0, waitingRequests = 0, completedRequests = 0, activeItems = 0, totalEmailsLogged = 0;
+            State.requests.forEach(req => {
+                if (req.status === 'COMPLETE') { completedRequests++; return; }
+                const reqIncomplete = req.actions.filter(a => !a.done).length;
+                incompleteActions += reqIncomplete;
+                totalEmailsLogged += (req.emails || []).length;
+                
+                if (req.status === 'WAITING' && reqIncomplete === 0) waitingRequests++;
+                else if (reqIncomplete > 0) activeItems++;
+            });
+            return { incompleteActions, waitingRequests, completedRequests, activeItems, totalEmailsLogged };
+        }
+
+        // Renders the Navigation Bar
+        function renderNav() {
+            return `
+            <nav class="bg-excel dark:bg-excel-dark text-white px-6 py-3 flex items-center justify-between shadow-md w-full">
+                <div class="flex items-center space-x-3 cursor-pointer" onclick="window.setView('dashboard')">
+                    <div class="bg-white/20 p-2 rounded-lg backdrop-blur-sm">${Icons.Table}</div>
+                    <div>
+                        <h1 class="text-lg font-bold tracking-tight leading-tight">Obligation Control</h1>
+                        <p class="text-[10px] text-green-100 font-mono tracking-widest uppercase">Actions Drive Status</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center bg-white/10 dark:bg-black/20 rounded-lg px-3 py-1.5 border border-white/20 transition-all focus-within:ring-2 focus-within:ring-white/50" title="Alt+S to Focus">
+                        <span class="text-green-200 mr-2">${Icons.Search}</span>
+                        <input id="univ-search" type="text" placeholder="Universal Search (Alt+S)" value="${escapeHTML(State.searchQuery)}" onkeyup="window.handleSearchInput(event)" class="bg-transparent text-white border-none focus:outline-none text-sm w-48 placeholder-green-200/70">
+                    </div>
+
+                    <button onclick="window.setView('create')" class="px-4 py-2 rounded-md font-bold flex items-center space-x-2 transition-colors ${State.activeView==='create'?'bg-white text-excel dark:bg-slate-800 dark:text-excel-light':'bg-excel-dark hover:bg-white/10 dark:bg-black/20 dark:hover:bg-black/40 text-white'}" title="Alt+N to Create">
+                        ${Icons.Plus} <span>New Workload</span>
+                    </button>
+                    <div class="h-6 w-px bg-white/20 mx-1"></div>
+                    <button onclick="window.setView('dashboard')" class="px-4 py-2 rounded-md font-medium transition-colors text-sm ${State.activeView==='dashboard'?'bg-white/20 text-white':'text-green-100 hover:bg-white/10'}">Dashboard</button>
+                    <button onclick="window.setView('history')" class="px-4 py-2 rounded-md font-medium flex items-center space-x-2 transition-colors text-sm ${State.activeView==='history'?'bg-white/20 text-white':'text-green-100 hover:bg-white/10'}">
+                        ${Icons.History} <span>History</span>
+                    </button>
+                    
+                    <div class="flex items-center space-x-2 bg-black/10 rounded-md p-1 border border-white/10">
+                        <input type="file" id="csv-file-input" accept=".csv" class="hidden" onchange="window.processImportCSV(event)">
+                        <button onclick="window.handleImportClick()" class="px-3 py-1.5 rounded font-medium flex items-center space-x-2 transition-colors text-sm text-green-100 hover:bg-white/20" title="Import CSV">
+                            ${Icons.Upload} <span>Import</span>
+                        </button>
+                        <div class="w-px h-4 bg-white/30"></div>
+                        <button onclick="window.handleExportCSV()" class="px-3 py-1.5 rounded font-medium flex items-center space-x-2 transition-colors text-sm text-green-100 hover:bg-white/20" title="Export CSV">
+                            ${Icons.Download} <span>Export</span>
+                        </button>
+                    </div>
+
+                    <button onclick="window.setView('endOfShift')" class="px-4 py-2 rounded-md font-medium flex items-center space-x-2 transition-colors text-sm ${State.activeView==='endOfShift'?'bg-white/20 text-white':'text-green-100 hover:bg-white/10'}">
+                        ${Icons.Moon} <span>End of Shift</span>
+                    </button>
+                    
+                    <div class="h-6 w-px bg-white/20 mx-1"></div>
+                    <button onclick="window.toggleTheme()" class="p-2 rounded-full hover:bg-white/20 transition-colors text-white" title="Toggle Theme">
+                        ${State.isDarkMode ? Icons.Sun : Icons.Moon}
+                    </button>
+                </div>
+            </nav>
+            `;
+        }
+
+        function renderRequestCard(req) {
+            const reqUndone = req.actions.filter(a => !a.done).length;
+            const sla = getSLA(req);
+            const latestAct = req.actions.length > 0 ? req.actions[req.actions.length - 1] : null;
+
+            return `
+            <div onclick="window.setView('request', '${req.id}')" class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 cursor-pointer hover:shadow-md hover:border-excel dark:hover:border-excel transition-all group flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-start mb-3">
+                        <h4 class="font-bold text-slate-800 dark:text-slate-100 group-hover:text-excel dark:group-hover:text-excel-light transition-colors line-clamp-1">${escapeHTML(req.topic)}</h4>
+                        ${getStatusBadge(req.status)}
+                    </div>
+                    <div class="text-sm text-slate-600 dark:text-slate-300 mb-4">
+                        <strong>${escapeHTML(req.employee)}</strong>
+                        <div class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">${escapeHTML(req.concernedEmail)}</div>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        ${reqUndone > 0 
+                            ? `<span class="bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-900/50 text-xs font-bold px-2 py-1 rounded flex items-center"><span class="mr-1">${Icons.AlertCircle}</span> ${reqUndone} Pending</span>` 
+                            : `<span class="bg-excel/10 text-excel-dark dark:bg-excel-dark/30 dark:text-excel-light border border-excel/20 dark:border-excel-dark text-xs font-bold px-2 py-1 rounded flex items-center"><span class="mr-1">${Icons.CheckCircle}</span> All Done</span>`
+                        }
+                        ${sla ? `<span class="text-xs font-bold px-2 py-1 rounded flex items-center border ${sla.color}"><span class="w-2 h-2 rounded-full mr-1.5 ${sla.dot}"></span>${sla.label}</span>` : ''}
+                    </div>
+                </div>
+                ${latestAct ? `
+                <div class="pt-3 mt-auto border-t border-slate-100 dark:border-slate-700">
+                    <div class="p-2 bg-slate-50 dark:bg-slate-900/50 rounded text-xs border border-slate-100 dark:border-slate-700 flex items-start">
+                        <span class="mr-1.5 mt-0.5 text-excel dark:text-excel-light shrink-0">${Icons.Activity}</span>
+                        <span class="text-slate-600 dark:text-slate-400 line-clamp-2">
+                            <strong>Latest Action:</strong> <span class="${latestAct.done ? 'line-through opacity-70' : ''}">${escapeHTML(latestAct.text)}</span>
+                        </span>
+                    </div>
+                </div>` : ''}
+            </div>`;
+        }
+
+        function renderDashboard() {
+            const filtered = getFilteredAndSortedRequests();
+            const activeReqs = filtered.filter(r => r.status === 'ACTIVE' && r.actions.some(a => !a.done));
+            const stats = getStats();
+            
+            let bannerHtml = '';
+            if (activeReqs.length > 0) {
+                const mostUrgent = activeReqs.reduce((prev, curr) => {
+                    const prevTime = prev.timeline?.length ? new Date(prev.timeline[prev.timeline.length-1].timestamp).getTime() : 0;
+                    const currTime = curr.timeline?.length ? new Date(curr.timeline[curr.timeline.length-1].timestamp).getTime() : 0;
+                    return prevTime < currTime ? prev : curr;
+                });
+                const pendingAction = mostUrgent.actions.find(a => !a.done);
+                bannerHtml = `
+                <div onclick="window.setView('request', '${mostUrgent.id}')" class="bg-gradient-to-r from-excel to-excel-light dark:from-excel-dark dark:to-excel rounded-xl shadow-md p-4 text-white flex items-center justify-between cursor-pointer hover:shadow-lg transition-all mb-8">
+                    <div class="flex items-center space-x-4">
+                        <div class="bg-white/20 p-2 rounded-lg backdrop-blur-sm">${Icons.Zap}</div>
+                        <div>
+                            <div class="text-xs font-bold uppercase tracking-wider text-green-100 mb-0.5">Top Priority Action</div>
+                            <div class="text-lg font-medium"><strong>${escapeHTML(mostUrgent.employee)}</strong> (${escapeHTML(mostUrgent.topic)}) needs <span class="underline decoration-yellow-300 decoration-2 underline-offset-2">${escapeHTML(pendingAction.text)}</span></div>
+                        </div>
+                    </div>
+                    <button class="bg-white text-excel-dark dark:bg-slate-900 dark:text-excel-light px-4 py-2 rounded-md font-bold text-sm shadow-sm hover:bg-slate-50 transition-colors">Execute Now &rarr;</button>
+                </div>`;
+            }
+
+            const cardsHtml = filtered.filter(r => r.status !== 'COMPLETE').map(renderRequestCard).join('');
+            const emptyHtml = cardsHtml === '' ? `
+                <div class="col-span-full bg-excel/5 border border-excel/20 dark:bg-excel-dark/10 dark:border-excel-dark text-excel-dark dark:text-excel-light rounded-xl p-8 text-center">
+                    <div class="flex justify-center mb-3 opacity-50">${Icons.CheckCircle}</div>
+                    <h3 class="text-xl font-bold">Inbox Zero / Dashboard Clear!</h3>
+                </div>` : '';
+
+            return `
+            <div class="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-300 pb-12">
+                ${bannerHtml}
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-5 border-l-4 border-red-500 flex flex-col justify-between">
+                        <div class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Actions Pending</div>
+                        <div class="text-4xl font-black text-red-600 dark:text-red-400 flex items-center">${stats.incompleteActions}</div>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-5 border-l-4 border-excel flex flex-col justify-between">
+                        <div class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Total Emails</div>
+                        <div class="text-4xl font-black text-excel dark:text-excel-light">${stats.totalEmailsLogged}</div>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-5 border-l-4 border-amber-500 flex flex-col justify-between">
+                        <div class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Waiting on Others</div>
+                        <div class="text-4xl font-black text-amber-600 dark:text-amber-500">${stats.waitingRequests}</div>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-5 border-l-4 border-slate-500 flex flex-col justify-between">
+                        <div class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Completed</div>
+                        <div class="text-4xl font-black text-slate-800 dark:text-slate-200">${stats.completedRequests}</div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center">
+                            Active Workloads <span class="ml-3 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-sm py-0.5 px-2.5 rounded-full">${filtered.filter(r => r.status !== 'COMPLETE').length} Open</span>
+                        </h3>
+                        <div class="flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 shadow-sm">
+                            <span class="mr-2 text-slate-400">${Icons.Filter}</span>
+                            <select onchange="State.sortOption=this.value; window.renderApp()" class="text-sm font-semibold text-slate-700 dark:text-slate-300 bg-transparent focus:outline-none border-none cursor-pointer pr-2">
+                                <option value="oldest" ${State.sortOption==='oldest'?'selected':''}>Oldest First</option>
+                                <option value="newest" ${State.sortOption==='newest'?'selected':''}>Newest First</option>
+                                <option value="most-actions" ${State.sortOption==='most-actions'?'selected':''}>Most Actions Pending</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${cardsHtml}${emptyHtml}</div>
+                </div>
+            </div>`;
+        }
+
+        function renderCreateView() {
+            const tmplOpts = State.templates.map(t => `<option value="${t.id}" ${State.createDraft.templateId===t.id?'selected':''}>${escapeHTML(t.topic)}</option>`).join('');
+            const actionsHtml = State.createDraft.actions.map((act, idx) => `
+                <div class="flex mb-2">
+                    <input type="text" value="${escapeHTML(act)}" oninput="window.updateDraft('actions', this.value, ${idx})" placeholder="Action ${idx + 1}" class="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-excel bg-white dark:bg-slate-900 dark:text-slate-100" />
+                    <button onclick="window.removeDraftAction(${idx})" class="ml-2 text-slate-400 hover:text-red-500 transition-colors">${Icons.Trash}</button>
+                </div>
+            `).join('');
+
+            return `
+            <div class="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300 pb-12">
+                <div class="flex items-center justify-between mb-8">
+                    <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Create New Workload</h2>
+                    <button onclick="window.setView('dashboard')" class="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center">
+                        ${Icons.ArrowLeft} <span class="ml-1">Cancel & Back</span>
+                    </button>
+                </div>
+                <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <div class="p-6 space-y-6">
+                        <div class="flex items-center space-x-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+                            <div class="flex-1">
+                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Select a Template (Optional)</label>
+                                <select onchange="window.handleTemplateChange(event)" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-excel bg-white dark:bg-slate-900 dark:text-slate-100">
+                                    <option value="">-- Blank Workspace --</option>
+                                    ${tmplOpts}
+                                </select>
+                            </div>
+                            ${State.createDraft.templateId ? `<button onclick="window.deleteTemplate()" class="mt-5 px-4 py-2 bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400 rounded-md border border-red-200 dark:border-red-900 hover:bg-red-100 font-semibold text-sm">Delete Template</button>` : ''}
+                        </div>
+                        <div class="grid grid-cols-2 gap-6 pb-6 border-b border-slate-100 dark:border-slate-700">
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Who is this from? (Employee)</label>
+                                <input type="text" value="${escapeHTML(State.createDraft.empName)}" oninput="window.updateDraft('empName', this.value)" placeholder="e.g., Jane Doe" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-excel bg-white dark:bg-slate-900 dark:text-slate-100" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Concerned Email Address</label>
+                                <input type="text" value="${escapeHTML(State.createDraft.concernedEmail)}" oninput="window.updateDraft('concernedEmail', this.value)" placeholder="e.g., jane.doe@company.com" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-excel bg-white dark:bg-slate-900 dark:text-slate-100" />
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Topic (Workload Heading)</label>
+                                <input type="text" value="${escapeHTML(State.createDraft.topic)}" oninput="window.updateDraft('topic', this.value)" placeholder="e.g., W4 Update" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-excel bg-white dark:bg-slate-900 dark:text-slate-100" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Incoming Email Subject (Optional)</label>
+                                <input type="text" value="${escapeHTML(State.createDraft.subject)}" oninput="window.updateDraft('subject', this.value)" placeholder="e.g., Re: Direct Deposit Update" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-excel bg-white dark:bg-slate-900 dark:text-slate-100" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Context / Scratchpad Notes (Optional)</label>
+                                <textarea oninput="window.updateDraft('notes', this.value)" placeholder="e.g., Ticket #12345, waiting on IT..." class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-excel bg-white dark:bg-slate-900 dark:text-slate-100 min-h-[80px] resize-y">${escapeHTML(State.createDraft.notes)}</textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Required Actions</label>
+                                ${actionsHtml}
+                                <button onclick="window.addDraftAction()" class="text-sm text-excel dark:text-excel-light font-semibold hover:underline mt-1">+ Add another action</button>
+                            </div>
+                        </div>
+                        <div class="pt-6 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                            <button onclick="window.saveAsTemplate()" class="text-sm text-slate-500 dark:text-slate-400 font-semibold underline hover:text-excel">Save layout as Template</button>
+                            <button onclick="window.createWorkload()" class="bg-excel hover:bg-excel-light text-white font-bold py-3 px-8 rounded-lg shadow-sm transition-colors">Create Workload</button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function renderRequestView() {
+            const req = getRequest();
+            if (!req) return '';
+            const unacked = req.emails.filter(e => !e.done).length;
+            const undone = req.actions.filter(a => !a.done).length;
+
+            const emailsHtml = req.emails.map(e => `
+                <div class="p-4 rounded-lg border-l-4 ${e.done ? 'bg-slate-50 border-slate-300 dark:bg-slate-900/50 dark:border-slate-600' : 'bg-excel/10 border-excel shadow-sm dark:bg-excel-dark/20 dark:border-excel-light'}">
+                    <div class="flex justify-between items-start">
+                        <div class="pr-4 flex-1">
+                            <input type="text" id="edit-email-${e.id}" oninput="window.updateItemText('email', '${e.id}', this.value)" value="${escapeHTML(e.text)}" class="w-full bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-excel focus:bg-white dark:focus:bg-slate-900 rounded px-1 py-0.5 focus:outline-none transition-colors ${e.done ? 'text-slate-500 dark:text-slate-400 line-through' : 'text-slate-800 dark:text-slate-100 font-medium'}" title="Click to edit subject" />
+                        </div>
+                        <div class="flex space-x-2 shrink-0 items-center">
+                            <button onclick="window.copyToClipboard(document.getElementById('edit-email-${e.id}').value)" class="p-1.5 text-slate-400 hover:text-excel rounded transition-colors" title="Copy Subject">${Icons.Copy}</button>
+                            <button onclick="window.toggleEmailDone('${e.id}')" class="px-3 py-1.5 rounded text-xs font-bold uppercase transition-colors ${e.done ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300' : 'bg-excel-light text-white shadow-sm'}">${e.done ? 'Reopen' : 'Done'}</button>
+                            <button onclick="window.deleteEmail('${e.id}')" class="p-1.5 text-slate-400 hover:text-red-600 rounded transition-colors" title="Delete Email">${Icons.Trash}</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            const actionsHtml = req.actions.map(a => `
+                <div class="flex items-center justify-between p-3 rounded-lg border transition-colors ${a.done ? 'bg-slate-50 border-slate-200 dark:bg-slate-900/50 dark:border-slate-700' : 'bg-white border-amber-300 dark:bg-slate-800 dark:border-amber-700 shadow-sm'}">
+                    <div class="flex items-start flex-1 mr-3">
+                        <input type="checkbox" ${a.done?'checked':''} onchange="window.toggleActionDone('${a.id}')" class="mt-2 mr-3 h-4 w-4 rounded text-excel focus:ring-excel cursor-pointer shrink-0">
+                        <input type="text" oninput="window.updateItemText('action', '${a.id}', this.value)" value="${escapeHTML(a.text)}" class="w-full text-sm bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-excel focus:bg-white dark:focus:bg-slate-900 rounded px-1 py-1 focus:outline-none transition-colors ${a.done ? 'line-through text-slate-400' : 'font-medium text-slate-800 dark:text-slate-100'}" title="Click to edit action" />
+                    </div>
+                    <button onclick="window.deleteAction('${a.id}')" class="p-1.5 text-slate-400 hover:text-red-600 rounded shrink-0">${Icons.Trash}</button>
+                </div>
+            `).join('');
+
+            const timelineHtml = [...req.timeline].reverse().map(t => `
+                <div class="flex text-sm items-start mb-2">
+                    <div class="w-24 text-slate-400 shrink-0 font-mono text-[10px] pt-1">${new Date(t.timestamp).toLocaleTimeString()}</div>
+                    <div class="font-medium text-slate-700 dark:text-slate-300 flex-1">${escapeHTML(t.text)}</div>
+                </div>
+            `).join('');
+
+            return `
+            <div class="max-w-6xl mx-auto animate-in fade-in duration-300 pb-12">
+                <div class="mb-6 flex items-center justify-between">
+                    <button onclick="window.setView('dashboard')" class="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center bg-white dark:bg-slate-800 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">${Icons.ArrowLeft} <span class="ml-2">Back</span></button>
+                    <div class="flex space-x-3">
+                        <button onclick="window.deleteSpecificWorkload(this, '${req.id}')" data-confirm="false" class="px-4 py-2 bg-red-50 text-red-600 border border-red-200 font-semibold rounded-lg hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50 flex items-center transition-colors">
+                            ${Icons.Trash} <span class="ml-2">Delete Workload</span>
+                        </button>
+                        ${req.status !== 'WAITING' ? `<button onclick="window.changeStatus('WAITING')" class="px-4 py-2 bg-amber-100 text-amber-800 font-semibold rounded-lg hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-400">Mark as WAITING</button>` : `<button onclick="window.changeStatus('ACTIVE')" class="px-4 py-2 bg-excel/10 text-excel-dark font-semibold rounded-lg hover:bg-excel/20 dark:bg-excel-dark/50 dark:text-excel-light">Mark as ACTIVE</button>`}
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 mb-6">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1 mr-6">
+                            <input type="text" oninput="window.updateWorkloadField('topic', this.value)" value="${escapeHTML(req.topic)}" class="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-3 bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-excel focus:bg-white dark:focus:bg-slate-900 rounded-md px-2 -ml-2 w-full focus:outline-none transition-colors" title="Click to edit Topic" />
+                            <div class="flex items-center flex-wrap gap-y-2 space-x-4 text-sm text-slate-500 dark:text-slate-400 mb-4">
+                                <span class="flex items-center">
+                                    <strong>Employee:</strong> 
+                                    <input type="text" oninput="window.updateWorkloadField('employee', this.value)" value="${escapeHTML(req.employee)}" class="ml-1 bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-excel focus:bg-white dark:focus:bg-slate-900 focus:outline-none px-1 py-0.5 rounded w-32 sm:w-48 transition-colors" title="Click to edit Employee Name" />
+                                </span>
+                                <span class="flex items-center">
+                                    <strong>Email:</strong> 
+                                    <input type="text" id="req-email-input" oninput="window.updateWorkloadField('concernedEmail', this.value)" value="${escapeHTML(req.concernedEmail || '')}" class="ml-1 bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-excel focus:bg-white dark:focus:bg-slate-900 focus:outline-none px-1 py-0.5 rounded w-48 sm:w-64 transition-colors" placeholder="N/A" title="Click to edit Email Address" /> 
+                                    <button onclick="window.copyToClipboard(document.getElementById('req-email-input').value)" class="ml-1.5 text-slate-400 hover:text-excel transition-colors" title="Copy Email">${Icons.Copy}</button>
+                                </span>
+                                ${getStatusBadge(req.status)}
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Scratchpad / Notes</label>
+                                <textarea oninput="window.updateNotes(event)" placeholder="Add a tracking ID, phone number, or quick context here..." class="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-md p-3 text-sm text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-excel min-h-[60px] resize-y">${escapeHTML(req.notes || '')}</textarea>
+                            </div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            ${(unacked > 0 || undone > 0) 
+                                ? `<div class="bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-900 p-3 rounded-lg flex items-center"><span class="mr-2">${Icons.AlertCircle}</span> <div class="text-sm font-semibold">Cannot close.<br/>${undone} Actions, ${unacked} Emails pending.</div></div>`
+                                : `<button onclick="window.attemptComplete()" class="bg-excel hover:bg-excel-light text-white font-bold py-3 px-6 rounded-lg shadow-sm flex items-center"><span class="mr-2">${Icons.CheckCircle}</span> Close Workload</button>`
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col">
+                        <div class="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 p-4 font-bold text-lg flex items-center"><span class="text-excel mr-2">${Icons.Mail}</span> Section 1: Incoming Emails</div>
+                        <div class="p-4 flex-1 space-y-3 overflow-y-auto max-h-[500px]">
+                            ${emailsHtml || '<div class="text-slate-400 italic text-center py-4">No emails logged.</div>'}
+                        </div>
+                        <div class="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex space-x-2">
+                            <input type="text" id="new-email-text" onkeydown="if(event.key==='Enter') window.addExistingEmail()" placeholder="Log incoming email..." class="flex-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-excel">
+                            <button onclick="window.addExistingEmail()" class="bg-excel/10 text-excel-dark dark:bg-excel-dark/50 dark:text-excel-light px-3 py-2 rounded-md font-semibold hover:bg-excel/20 text-sm">Add</button>
+                        </div>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col">
+                        <div class="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700 p-4 font-bold text-lg flex items-center"><span class="text-amber-500 mr-2">${Icons.CheckSquare}</span> Section 2: Required Actions</div>
+                        <div class="p-4 flex-1 space-y-2 overflow-y-auto max-h-[500px]">
+                            ${actionsHtml || '<div class="text-slate-400 italic text-center py-4">No actions required.</div>'}
+                        </div>
+                        <div class="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex space-x-2">
+                            <input type="text" id="new-action-text" onkeydown="if(event.key==='Enter') window.addExistingAction()" placeholder="Add required action..." class="flex-1 px-3 py-2 text-sm border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-900 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-excel">
+                            <button onclick="window.addExistingAction()" class="bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 px-3 py-2 rounded-md font-semibold hover:bg-slate-300 dark:hover:bg-slate-600 text-sm">Add Task</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 max-h-[300px] overflow-y-auto">
+                    <h3 class="font-bold text-lg mb-4 flex items-center"><span class="mr-2">${Icons.Clock}</span> Activity Log</h3>
+                    ${timelineHtml}
+                </div>
+            </div>`;
+        }
+
+        function renderEndOfShift() {
+            const stats = getStats();
+            return `
+            <div class="max-w-3xl mx-auto mt-10 animate-in zoom-in-95 duration-300 pb-12">
+                <div class="bg-slate-900 text-white rounded-2xl shadow-xl overflow-hidden border border-slate-800">
+                    <div class="p-8 text-center border-b border-slate-800">
+                        <div class="flex justify-center mb-4 text-excel-light">${Icons.Moon}</div>
+                        <h2 class="text-3xl font-black mb-2">End of Shift Check</h2>
+                        <p class="text-slate-400">Objective verification before you log off.</p>
+                    </div>
+                    <div class="p-8 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+                        <div class="p-6 rounded-xl border-2 ${stats.incompleteActions > 0 ? 'border-red-500 bg-red-50 dark:bg-red-900/20 dark:border-red-800' : 'border-excel bg-excel/5 dark:bg-excel-dark/10 dark:border-excel-dark'}">
+                            ${stats.incompleteActions > 0 ? `
+                                <div class="text-center">
+                                    <h3 class="text-2xl font-bold text-red-700 dark:text-red-400 mb-3 flex items-center justify-center"><span class="mr-2">${Icons.AlertCircle}</span> Do not log off yet.</h3>
+                                    <p class="text-lg text-red-900 dark:text-red-300 mb-6">You still owe <strong>${stats.incompleteActions} actions</strong> across active workloads.</p>
+                                    <button onclick="window.setView('dashboard')" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-lg">Return to Dashboard</button>
+                                </div>
+                            ` : `
+                                <div class="text-center py-6">
+                                    <h3 class="text-3xl font-bold text-excel dark:text-excel-light mb-4 flex items-center justify-center"><span class="mr-3">${Icons.CheckCircle}</span> All Clear!</h3>
+                                    <p class="text-lg text-slate-700 dark:text-slate-300 mb-6">Every required action is complete. You are safe to log off.</p>
+                                    <div class="border-t border-slate-200 dark:border-slate-700 pt-6 mt-6">
+                                        <h4 class="font-bold text-slate-700 dark:text-slate-300 mb-2">Ready for tomorrow?</h4>
+                                        <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Export your data, then wipe the board to start fresh.</p>
+                                        <div class="flex justify-center space-x-4">
+                                            <button onclick="window.handleExportCSV()" class="bg-slate-200 hover:bg-slate-300 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 font-bold py-2 px-6 rounded-lg flex items-center transition-colors"><span class="mr-2">${Icons.Download}</span> Export Final Data</button>
+                                            <button onclick="window.triggerWipe(this)" data-confirm="false" class="bg-red-100 hover:bg-red-200 text-red-800 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 font-bold py-2 px-6 rounded-lg flex items-center transition-all duration-200"><span class="mr-2">${Icons.Trash}</span> Wipe Board Clean</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function renderHistory() {
+            const completed = getFilteredAndSortedRequests().filter(r => r.status === 'COMPLETE');
+            return `
+            <div class="max-w-6xl mx-auto animate-in fade-in duration-300 pb-12">
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center text-2xl font-bold"><span class="mr-2 text-excel dark:text-excel-light">${Icons.History}</span> Completed Workloads</div>
+                    <button onclick="window.triggerWipe(this)" data-confirm="false" class="bg-red-100 hover:bg-red-200 text-red-800 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 font-bold py-2 px-4 rounded-lg flex items-center transition-all duration-200 text-sm"><span class="mr-2">${Icons.Trash}</span> Clear All Workloads</button>
+                </div>
+                <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden divide-y divide-slate-100 dark:divide-slate-700">
+                    ${completed.length === 0 ? '<div class="p-8 text-center text-slate-500 italic">No completed workloads found.</div>' : ''}
+                    ${completed.map(req => `
+                        <div class="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-900/50 cursor-pointer" onclick="window.setView('request', '${req.id}')">
+                            <div>
+                                <h4 class="font-bold text-slate-800 dark:text-slate-100">${escapeHTML(req.topic)}</h4>
+                                <div class="text-sm text-slate-500 mt-1"><strong>${escapeHTML(req.employee)}</strong></div>
+                            </div>
+                            <span class="bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 text-xs font-bold px-3 py-1 rounded-full uppercase">Completed</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>`;
+        }
+
+        function renderModals() {
+            const modalRoot = document.getElementById('modal-root');
+            let html = '';
+            if (State.alertMsg) {
+                html += `
+                <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm animate-in fade-in">
+                    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
+                        <div class="flex items-center mb-4 text-excel dark:text-excel-light"><span class="mr-3">${Icons.AlertCircle}</span><h3 class="text-xl font-bold">System Notification</h3></div>
+                        <p class="text-slate-600 dark:text-slate-300 mb-6 font-medium whitespace-pre-wrap">${escapeHTML(State.alertMsg)}</p>
+                        <div class="flex justify-end"><button onclick="window.closeAlert()" class="bg-excel hover:bg-excel-light text-white font-bold py-2 px-6 rounded-lg">Understood</button></div>
+                    </div>
+                </div>`;
+            }
+            if (State.importProgress !== null || State.wipeProgress !== null) {
+                const isWipe = State.wipeProgress !== null;
+                const p = isWipe ? State.wipeProgress : State.importProgress;
+                const color = isWipe ? 'bg-red-600' : 'bg-excel';
+                const textCol = isWipe ? 'text-red-600' : 'text-excel';
+                const icon = isWipe ? Icons.Trash : Icons.Upload;
+                const title = isWipe ? 'Wiping Board Clean...' : 'Importing Workloads...';
+                
+                html += `
+                <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm animate-in fade-in">
+                    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-sm w-full p-8 text-center animate-in zoom-in-95 duration-200">
+                        <div class="flex justify-center mb-4 ${textCol} animate-bounce">${icon}</div>
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4">${title}</h3>
+                        <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3 mb-3 overflow-hidden shadow-inner">
+                            <div class="${color} h-3 rounded-full transition-all duration-300 ease-out" style="width: ${p}%"></div>
+                        </div>
+                        <p class="text-sm font-bold text-slate-500">${p}%</p>
+                    </div>
+                </div>`;
+            }
+            modalRoot.innerHTML = html;
+        }
+
+        window.renderApp = () => {
+            const root = document.getElementById('app-root');
+            
+            // Do not re-render the entire App Root if we are just searching, to preserve focus
+            // Wait, actually, if activeView is 'search', the input is in the navbar.
+            // If we re-render the navbar, input loses focus.
+            // Solution: Build HTML strings but inject them into specific containers.
+            
+            let navHtml = renderNav();
+            let mainHtml = '';
+            
+            if (State.activeView === 'dashboard' || State.activeView === 'search') mainHtml = renderDashboard();
+            else if (State.activeView === 'create') mainHtml = renderCreateView();
+            else if (State.activeView === 'request') mainHtml = renderRequestView();
+            else if (State.activeView === 'history') mainHtml = renderHistory();
+            else if (State.activeView === 'endOfShift') mainHtml = renderEndOfShift();
+
+            // We only replace the entire DOM once initially, then update contents to avoid breaking focus where possible
+            if (root.innerHTML === '') {
+                root.innerHTML = `<div id="nav-container" class="sticky top-0 z-50 w-full shadow-sm"></div><main id="main-container" class="flex-1 w-full p-6"></main>`;
+            }
+            
+            // Only update Navbar if not typing in search (to prevent focus loss)
+            const activeElement = document.activeElement;
+            const isSearching = activeElement && activeElement.id === 'univ-search';
+            
+            if (!isSearching) {
+                document.getElementById('nav-container').innerHTML = navHtml;
+            }
+            
+            document.getElementById('main-container').innerHTML = mainHtml;
+            renderModals();
+        };
+
+        // Initialize App
+        window.renderApp();
+
+    </script>
+</body>
+</html>
