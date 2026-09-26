@@ -307,6 +307,13 @@
 
             email.done = !email.done;
             req.timeline.push({ id: `t_${Date.now()}`, type: email.done ? 'ACK' : 'UNACK', text: `${email.done ? 'Marked Done' : 'Unmarked Done'}: ${email.text}`, timestamp: new Date().toISOString() });
+            
+            // Automatically reopen the entire workload if an email is unchecked
+            if (!email.done && req.status === 'COMPLETE') {
+                req.status = 'ACTIVE';
+                req.timeline.push({ id: `t_${Date.now() + 1}`, type: 'STATUS', text: `Status changed to ACTIVE (Email reopened)`, timestamp: new Date().toISOString() });
+            }
+
             saveState();
             renderApp();
         };
@@ -324,6 +331,13 @@
             const action = req.actions.find(a => a.id === actionId);
             action.done = !action.done;
             req.timeline.push({ id: `t_${Date.now()}`, type: 'ACTION', text: `${action.done ? 'Completed' : 'Reopened'} action: ${action.text}`, timestamp: new Date().toISOString() });
+            
+            // Automatically reopen the entire workload if an action is unchecked
+            if (!action.done && req.status === 'COMPLETE') {
+                req.status = 'ACTIVE';
+                req.timeline.push({ id: `t_${Date.now() + 1}`, type: 'STATUS', text: `Status changed to ACTIVE (Action reopened)`, timestamp: new Date().toISOString() });
+            }
+
             saveState();
             renderApp();
         };
@@ -413,9 +427,17 @@
                 return;
             }
 
-            req.status = 'ACTIVE';
             req.emails.push({ id: `e_${Date.now()}`, text, receivedAt: new Date().toISOString(), done: false });
             req.timeline.push({ id: `t_${Date.now()}`, type: 'EMAIL', text: `Logged: ${text}`, timestamp: new Date().toISOString() });
+            
+            // Adding new items to a completed workload should make it active again
+            if (req.status === 'COMPLETE') {
+                req.status = 'ACTIVE';
+                req.timeline.push({ id: `t_${Date.now() + 1}`, type: 'STATUS', text: `Status changed to ACTIVE (New email logged)`, timestamp: new Date().toISOString() });
+            } else {
+                req.status = 'ACTIVE';
+            }
+
             saveState();
             renderApp();
         };
@@ -433,6 +455,13 @@
 
             req.actions.push({ id: `a_${Date.now()}`, text, done: false });
             req.timeline.push({ id: `t_${Date.now()}`, type: 'ACTION', text: `Action added: ${text}`, timestamp: new Date().toISOString() });
+            
+            // Adding new items to a completed workload should make it active again
+            if (req.status === 'COMPLETE') {
+                req.status = 'ACTIVE';
+                req.timeline.push({ id: `t_${Date.now() + 1}`, type: 'STATUS', text: `Status changed to ACTIVE (New action added)`, timestamp: new Date().toISOString() });
+            }
+
             saveState();
             renderApp();
         };
@@ -810,9 +839,9 @@
                 </div>` : '';
 
             return `
-            <div class="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-300 pb-12">
+            <div class="w-full max-w-[1800px] 2xl:max-w-[95%] mx-auto space-y-8 animate-in fade-in duration-300 pb-12">
                 ${bannerHtml}
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-5 border-l-4 border-red-500 flex flex-col justify-between">
                         <div class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Actions Pending</div>
                         <div class="text-4xl font-black text-red-600 dark:text-red-400 flex items-center">${stats.incompleteActions}</div>
@@ -844,7 +873,7 @@
                             </select>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${cardsHtml}${emptyHtml}</div>
+                    <div class="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-4">${cardsHtml}${emptyHtml}</div>
                 </div>
             </div>`;
         }
@@ -859,7 +888,7 @@
             `).join('');
 
             return `
-            <div class="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300 pb-12">
+            <div class="w-full max-w-[1200px] mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300 pb-12">
                 <div class="flex items-center justify-between mb-8">
                     <h2 class="text-2xl font-bold text-slate-800 dark:text-slate-100">Create New Workload</h2>
                     <button onclick="window.setView('dashboard')" class="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center">
@@ -955,14 +984,19 @@
             `).join('');
 
             return `
-            <div class="max-w-6xl mx-auto animate-in fade-in duration-300 pb-12">
+            <div class="w-full max-w-[1800px] 2xl:max-w-[95%] mx-auto animate-in fade-in duration-300 pb-12">
                 <div class="mb-6 flex items-center justify-between">
                     <button onclick="window.setView('dashboard')" class="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 flex items-center bg-white dark:bg-slate-800 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">${Icons.ArrowLeft} <span class="ml-2">Back</span></button>
                     <div class="flex space-x-3">
                         <button onclick="window.deleteSpecificWorkload(this, '${req.id}')" data-confirm="false" class="px-4 py-2 bg-red-50 text-red-600 border border-red-200 font-semibold rounded-lg hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50 flex items-center transition-colors">
                             ${Icons.Trash} <span class="ml-2">Delete Workload</span>
                         </button>
-                        ${req.status !== 'WAITING' ? `<button onclick="window.changeStatus('WAITING')" class="px-4 py-2 bg-amber-100 text-amber-800 font-semibold rounded-lg hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-400">Mark as WAITING</button>` : `<button onclick="window.changeStatus('ACTIVE')" class="px-4 py-2 bg-excel/10 text-excel-dark font-semibold rounded-lg hover:bg-excel/20 dark:bg-excel-dark/50 dark:text-excel-light">Mark as ACTIVE</button>`}
+                        ${req.status === 'COMPLETE' 
+                            ? `<button onclick="window.changeStatus('ACTIVE')" class="px-4 py-2 bg-slate-200 text-slate-700 font-semibold rounded-lg hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 transition-colors">Reopen Workload</button>`
+                            : req.status !== 'WAITING' 
+                                ? `<button onclick="window.changeStatus('WAITING')" class="px-4 py-2 bg-amber-100 text-amber-800 font-semibold rounded-lg hover:bg-amber-200 dark:bg-amber-900/50 dark:text-amber-400">Mark as WAITING</button>` 
+                                : `<button onclick="window.changeStatus('ACTIVE')" class="px-4 py-2 bg-excel/10 text-excel-dark font-semibold rounded-lg hover:bg-excel/20 dark:bg-excel-dark/50 dark:text-excel-light">Mark as ACTIVE</button>`
+                        }
                     </div>
                 </div>
                 <div class="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 mb-6">
@@ -987,7 +1021,9 @@
                             </div>
                         </div>
                         <div class="text-right shrink-0">
-                            ${(unacked > 0 || undone > 0) 
+                            ${req.status === 'COMPLETE'
+                                ? `<div class="bg-slate-100 text-slate-700 border border-slate-300 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600 p-3 rounded-lg flex items-center"><span class="mr-2">${Icons.CheckCircle}</span> <div class="text-sm font-semibold">Workload Completed</div></div>`
+                                : (unacked > 0 || undone > 0) 
                                 ? `<div class="bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-900 p-3 rounded-lg flex items-center"><span class="mr-2">${Icons.AlertCircle}</span> <div class="text-sm font-semibold">Cannot close.<br/>${undone} Actions, ${unacked} Emails pending.</div></div>`
                                 : `<button onclick="window.attemptComplete()" class="bg-excel hover:bg-excel-light text-white font-bold py-3 px-6 rounded-lg shadow-sm flex items-center"><span class="mr-2">${Icons.CheckCircle}</span> Close Workload</button>`
                             }
@@ -1064,7 +1100,7 @@
         function renderHistory() {
             const completed = getFilteredAndSortedRequests().filter(r => r.status === 'COMPLETE');
             return `
-            <div class="max-w-6xl mx-auto animate-in fade-in duration-300 pb-12">
+            <div class="w-full max-w-[1800px] 2xl:max-w-[95%] mx-auto animate-in fade-in duration-300 pb-12">
                 <div class="flex items-center justify-between mb-6">
                     <div class="flex items-center text-2xl font-bold"><span class="mr-2 text-excel dark:text-excel-light">${Icons.History}</span> Completed Workloads</div>
                     <button onclick="window.triggerWipe(this)" data-confirm="false" class="bg-red-100 hover:bg-red-200 text-red-800 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 font-bold py-2 px-4 rounded-lg flex items-center transition-all duration-200 text-sm"><span class="mr-2">${Icons.Trash}</span> Clear All Workloads</button>
@@ -1139,7 +1175,7 @@
 
             // We only replace the entire DOM once initially, then update contents to avoid breaking focus where possible
             if (root.innerHTML === '') {
-                root.innerHTML = `<div id="nav-container" class="sticky top-0 z-50 w-full shadow-sm"></div><main id="main-container" class="flex-1 w-full p-6"></main>`;
+                root.innerHTML = `<div id="nav-container" class="fixed top-0 left-0 w-full z-50 shadow-sm"></div><main id="main-container" class="flex-1 w-full p-6 pt-20"></main>`;
             }
             
             // Only update Navbar if not typing in search (to prevent focus loss)
