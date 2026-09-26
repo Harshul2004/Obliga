@@ -1,8 +1,8 @@
-# Obligo
+# Obliga
 
 ### Never lose an obligation.
 
-**Obligo** is an Email Obligation & Acknowledgement Tracking app designed for high-volume email workflows.
+**Obliga** is an Email Obligation & Acknowledgement Tracking app designed for high-volume email workflows.
 
 It answers one simple question:
 
@@ -26,7 +26,7 @@ ACTION(S)
 COMPLETION
 ```
 
-Obligo keeps these separate so unfinished work doesn't disappear.
+Obliga keeps these separate so unfinished work doesn't disappear.
 
 ## Features
 
